@@ -34,6 +34,42 @@ public class StudyController {
                                 "optionD", "Browsing websites",
                                 "correctAnswer", "A",
                                 "weakArea", topic + " basic concept"
+                        ),
+                        Map.of(
+                                "question", "What is the best way to understand " + topic + "?",
+                                "optionA", "Only memorize definitions",
+                                "optionB", "Understand concept and solve examples",
+                                "optionC", "Skip difficult parts",
+                                "optionD", "Only watch videos",
+                                "correctAnswer", "B",
+                                "weakArea", topic + " understanding"
+                        ),
+                        Map.of(
+                                "question", "Why is practice important in " + topic + "?",
+                                "optionA", "It makes concepts stronger",
+                                "optionB", "It wastes time",
+                                "optionC", "It removes the need to learn theory",
+                                "optionD", "It is only for exams",
+                                "correctAnswer", "A",
+                                "weakArea", topic + " practice"
+                        ),
+                        Map.of(
+                                "question", "What should a student do after learning basics of " + topic + "?",
+                                "optionA", "Stop studying",
+                                "optionB", "Solve small problems",
+                                "optionC", "Ignore examples",
+                                "optionD", "Only copy notes",
+                                "correctAnswer", "B",
+                                "weakArea", topic + " problem solving"
+                        ),
+                        Map.of(
+                                "question", "Which mistake should students avoid while learning " + topic + "?",
+                                "optionA", "Practicing examples",
+                                "optionB", "Asking questions",
+                                "optionC", "Only memorizing without understanding",
+                                "optionD", "Making notes",
+                                "correctAnswer", "C",
+                                "weakArea", topic + " common mistakes"
                         )
                 ),
 
