@@ -46,6 +46,7 @@ async function generateStudy() {
 
                 <div class="section">
                     <h3>Quiz Questions</h3>
+
                     ${data.mcqs.map((mcq, index) => `
                         <div class="mcq-box">
                             <p><b>Q${index + 1}:</b> ${mcq.question}</p>
@@ -193,6 +194,41 @@ async function generatePersonalizedPractice() {
 
     } catch (error) {
         practiceDiv.innerHTML = "<p style='color:red;'>Could not generate personalized practice.</p>";
+        console.log(error);
+    }
+}
+
+async function loadHistory() {
+    const historyDiv = document.getElementById("history");
+
+    historyDiv.innerHTML = "<p>Loading history...</p>";
+
+    try {
+        const response = await fetch("/api/study/history");
+        const sessions = await response.json();
+
+        if (sessions.length === 0) {
+            historyDiv.innerHTML = "<p>No history found yet.</p>";
+            return;
+        }
+
+        historyDiv.innerHTML = `
+            <div class="card">
+                <h3>Study History</h3>
+
+                ${sessions.map(session => `
+                    <div class="mcq-box">
+                        <p><b>Topic:</b> ${session.topic}</p>
+                        <p><b>Difficulty:</b> ${session.difficulty}</p>
+                        <p><b>Summary:</b> ${session.summary}</p>
+                        <p><b>Created At:</b> ${session.createdAt}</p>
+                    </div>
+                `).join("")}
+            </div>
+        `;
+
+    } catch (error) {
+        historyDiv.innerHTML = "<p style='color:red;'>Could not load history.</p>";
         console.log(error);
     }
 }
