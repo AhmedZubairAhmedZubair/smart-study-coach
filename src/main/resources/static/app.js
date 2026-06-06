@@ -1,5 +1,6 @@
 let currentMcqs = [];
 let detectedWeakArea = "";
+let currentSessionId = null;
 
 async function generateStudy() {
     const topic = document.getElementById("topic").value;
@@ -27,6 +28,7 @@ async function generateStudy() {
 
         const data = await response.json();
 
+        currentSessionId = data.sessionId;
         currentMcqs = data.mcqs;
 
         resultDiv.innerHTML = `
@@ -94,7 +96,7 @@ async function generateStudy() {
     }
 }
 
-function submitQuiz() {
+async function submitQuiz() {
     let score = 0;
     let wrongWeakAreas = [];
 
@@ -129,6 +131,30 @@ function submitQuiz() {
             </button>
         </div>
     `;
+
+    try {
+        const response = await fetch("/api/study/quiz-result", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                sessionId: currentSessionId.toString(),
+                score: score.toString(),
+                totalQuestions: currentMcqs.length.toString(),
+                weakArea: detectedWeakArea
+            })
+        });
+
+        if (response.ok) {
+            console.log("Quiz result saved successfully");
+        } else {
+            console.log("Quiz result API error");
+        }
+
+    } catch (error) {
+        console.log("Could not save quiz result", error);
+    }
 }
 
 function detectWeakArea(wrongWeakAreas) {
@@ -205,6 +231,12 @@ async function loadHistory() {
 
     try {
         const response = await fetch("/api/study/history");
+
+        if (!response.ok) {
+            historyDiv.innerHTML = "<p style='color:red;'>Study history API error.</p>";
+            return;
+        }
+
         const sessions = await response.json();
 
         if (sessions.length === 0) {
@@ -229,6 +261,47 @@ async function loadHistory() {
 
     } catch (error) {
         historyDiv.innerHTML = "<p style='color:red;'>Could not load history.</p>";
+        console.log(error);
+    }
+}
+
+async function loadQuizHistory() {
+    const historyDiv = document.getElementById("history");
+
+    historyDiv.innerHTML = "<p>Loading quiz history...</p>";
+
+    try {
+        const response = await fetch("/api/study/quiz-history");
+
+        if (!response.ok) {
+            historyDiv.innerHTML = "<p style='color:red;'>Quiz history API error.</p>";
+            return;
+        }
+
+        const attempts = await response.json();
+
+        if (attempts.length === 0) {
+            historyDiv.innerHTML = "<p>No quiz history found yet. Submit a quiz first.</p>";
+            return;
+        }
+
+        historyDiv.innerHTML = `
+            <div class="card">
+                <h3>Quiz History</h3>
+
+                ${attempts.map(attempt => `
+                    <div class="mcq-box">
+                        <p><b>Session ID:</b> ${attempt.sessionId}</p>
+                        <p><b>Score:</b> ${attempt.score}/${attempt.totalQuestions}</p>
+                        <p><b>Weak Area:</b> ${attempt.weakArea}</p>
+                        <p><b>Created At:</b> ${attempt.createdAt}</p>
+                    </div>
+                `).join("")}
+            </div>
+        `;
+
+    } catch (error) {
+        historyDiv.innerHTML = "<p style='color:red;'>Could not load quiz history.</p>";
         console.log(error);
     }
 }

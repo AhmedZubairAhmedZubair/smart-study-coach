@@ -1,6 +1,8 @@
 package com.ahmed.studycoach.controller;
 
+import com.ahmed.studycoach.model.QuizAttempt;
 import com.ahmed.studycoach.model.StudySession;
+import com.ahmed.studycoach.repository.QuizAttemptRepository;
 import com.ahmed.studycoach.repository.StudySessionRepository;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,9 +15,14 @@ import java.util.Map;
 public class StudyController {
 
     private final StudySessionRepository studySessionRepository;
+    private final QuizAttemptRepository quizAttemptRepository;
 
-    public StudyController(StudySessionRepository studySessionRepository) {
+    public StudyController(
+            StudySessionRepository studySessionRepository,
+            QuizAttemptRepository quizAttemptRepository
+    ) {
         this.studySessionRepository = studySessionRepository;
+        this.quizAttemptRepository = quizAttemptRepository;
     }
 
     @PostMapping("/generate")
@@ -91,9 +98,10 @@ public class StudyController {
                 String.join(" | ", practiceProblems)
         );
 
-        studySessionRepository.save(session);
+        StudySession savedSession = studySessionRepository.save(session);
 
         return Map.of(
+                "sessionId", savedSession.getId(),
                 "topic", topic,
                 "difficulty", difficulty,
                 "summary", summary,
@@ -120,8 +128,36 @@ public class StudyController {
         );
     }
 
+    @PostMapping("/quiz-result")
+    public Map<String, Object> saveQuizResult(@RequestBody Map<String, String> request) {
+
+        Long sessionId = Long.parseLong(request.get("sessionId"));
+        int score = Integer.parseInt(request.get("score"));
+        int totalQuestions = Integer.parseInt(request.get("totalQuestions"));
+        String weakArea = request.get("weakArea");
+
+        QuizAttempt quizAttempt = new QuizAttempt(
+                sessionId,
+                score,
+                totalQuestions,
+                weakArea
+        );
+
+        QuizAttempt savedAttempt = quizAttemptRepository.save(quizAttempt);
+
+        return Map.of(
+                "message", "Quiz result saved successfully",
+                "attemptId", savedAttempt.getId()
+        );
+    }
+
     @GetMapping("/history")
     public List<StudySession> getStudyHistory() {
         return studySessionRepository.findAllByOrderByCreatedAtDesc();
+    }
+
+    @GetMapping("/quiz-history")
+    public List<QuizAttempt> getQuizHistory() {
+        return quizAttemptRepository.findAllByOrderByCreatedAtDesc();
     }
 }
