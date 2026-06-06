@@ -1,4 +1,5 @@
 let currentMcqs = [];
+let detectedWeakArea = "";
 
 async function generateStudy() {
     const topic = document.getElementById("topic").value;
@@ -75,6 +76,7 @@ async function generateStudy() {
                 </div>
 
                 <div id="quizResult"></div>
+                <div id="personalizedPractice"></div>
 
                 <div class="section">
                     <h3>Practice Problems</h3>
@@ -113,13 +115,17 @@ function submitQuiz() {
         }
     }
 
-    const weakArea = detectWeakArea(wrongWeakAreas);
+    detectedWeakArea = detectWeakArea(wrongWeakAreas);
 
     document.getElementById("quizResult").innerHTML = `
         <div class="card">
             <h3>Quiz Result</h3>
             <p><b>Score:</b> ${score}/${currentMcqs.length}</p>
-            <p><b>Weak Area:</b> ${weakArea}</p>
+            <p><b>Weak Area:</b> ${detectedWeakArea}</p>
+
+            <button onclick="generatePersonalizedPractice()">
+                Generate Personalized Practice
+            </button>
         </div>
     `;
 }
@@ -144,4 +150,49 @@ function detectWeakArea(wrongWeakAreas) {
     }
 
     return mostRepeatedArea;
+}
+
+async function generatePersonalizedPractice() {
+    const practiceDiv = document.getElementById("personalizedPractice");
+
+    if (detectedWeakArea === "No weak area detected. Great job!") {
+        practiceDiv.innerHTML = `
+            <div class="card">
+                <h3>Personalized Practice</h3>
+                <p>You performed well. No weak area detected.</p>
+            </div>
+        `;
+        return;
+    }
+
+    practiceDiv.innerHTML = "<p>Generating personalized practice...</p>";
+
+    try {
+        const response = await fetch("/api/study/personalized-practice", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                weakArea: detectedWeakArea
+            })
+        });
+
+        const data = await response.json();
+
+        practiceDiv.innerHTML = `
+            <div class="card">
+                <h3>Personalized Practice</h3>
+                <p><b>Focus Area:</b> ${data.weakArea}</p>
+
+                <ul>
+                    ${data.practiceProblems.map(problem => `<li>${problem}</li>`).join("")}
+                </ul>
+            </div>
+        `;
+
+    } catch (error) {
+        practiceDiv.innerHTML = "<p style='color:red;'>Could not generate personalized practice.</p>";
+        console.log(error);
+    }
 }

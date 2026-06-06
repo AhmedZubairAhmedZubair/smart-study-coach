@@ -80,4 +80,20 @@ public class StudyController {
                 )
         );
     }
+    @PostMapping("/personalized-practice")
+    public Map<String, Object> generatePersonalizedPractice(@RequestBody Map<String, String> request) {
+
+        String weakArea = request.get("weakArea");
+
+        return Map.of(
+                "weakArea", weakArea,
+                "practiceProblems", List.of(
+                        "Explain the concept of " + weakArea + " in simple words.",
+                        "Write 3 key points about " + weakArea + ".",
+                        "Create a small example related to " + weakArea + ".",
+                        "Solve one easy question based on " + weakArea + ".",
+                        "Write one common mistake students make in " + weakArea + "."
+                )
+        );
+    }
 }
