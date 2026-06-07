@@ -9,17 +9,34 @@
 <div class="container">
     <div class="header">
         <h1>Smart Study Coach AI</h1>
-        <p>Generate notes, quiz questions, and practice problems for any topic.</p>
+        <p>Generate detailed notes, quiz questions, and practice problems for any topic.</p>
     </div>
 
     <div class="input-box">
-        <input type="text" id="topic" placeholder="Enter topic e.g. Binary Search Tree">
+        <input
+                type="text"
+                id="topic"
+                placeholder="Enter topic e.g. Binary Search Tree"
+        >
 
         <select id="difficulty">
             <option value="Easy">Easy</option>
             <option value="Medium">Medium</option>
             <option value="Hard">Hard</option>
         </select>
+
+        <input
+                type="number"
+                id="mcqCount"
+                placeholder="How many MCQs? e.g. 5, 15, 30"
+                min="1"
+                value="5"
+        >
+
+        <textarea
+                id="customPrompt"
+                placeholder="Extra instruction e.g. Explain in extreme detail and focus on deletion/traversal"
+        ></textarea>
 
         <button onclick="generateStudy()">Generate Study Material</button>
         <button onclick="loadHistory()" class="secondary-btn">View History</button>

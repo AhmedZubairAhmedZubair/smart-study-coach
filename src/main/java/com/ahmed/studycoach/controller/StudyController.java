@@ -4,10 +4,10 @@ import com.ahmed.studycoach.model.QuizAttempt;
 import com.ahmed.studycoach.model.StudySession;
 import com.ahmed.studycoach.repository.QuizAttemptRepository;
 import com.ahmed.studycoach.repository.StudySessionRepository;
+import com.ahmed.studycoach.service.GeminiService;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/study")
@@ -16,13 +16,16 @@ public class StudyController {
 
     private final StudySessionRepository studySessionRepository;
     private final QuizAttemptRepository quizAttemptRepository;
+    private final GeminiService geminiService;
 
     public StudyController(
             StudySessionRepository studySessionRepository,
-            QuizAttemptRepository quizAttemptRepository
+            QuizAttemptRepository quizAttemptRepository,
+            GeminiService geminiService
     ) {
         this.studySessionRepository = studySessionRepository;
         this.quizAttemptRepository = quizAttemptRepository;
+        this.geminiService = geminiService;
     }
 
     @PostMapping("/generate")
@@ -30,65 +33,21 @@ public class StudyController {
 
         String topic = request.get("topic");
         String difficulty = request.get("difficulty");
+        int mcqCount = Integer.parseInt(request.getOrDefault("mcqCount", "5"));
+        String customPrompt = request.getOrDefault("customPrompt", "");
 
-        String summary = topic + " is an important topic for software engineering students.";
-
-        String explanation = "First understand the basic meaning of " + topic +
-                ". Then learn its main parts. After that, solve small examples.";
-
-        List<Map<String, String>> mcqs = List.of(
-                Map.of(
-                        "question", "What is " + topic + " mainly used for?",
-                        "optionA", "Learning and solving computer science problems",
-                        "optionB", "Editing videos",
-                        "optionC", "Playing games",
-                        "optionD", "Browsing websites",
-                        "correctAnswer", "A",
-                        "weakArea", topic + " basic concept"
-                ),
-                Map.of(
-                        "question", "What is the best way to understand " + topic + "?",
-                        "optionA", "Only memorize definitions",
-                        "optionB", "Understand concept and solve examples",
-                        "optionC", "Skip difficult parts",
-                        "optionD", "Only watch videos",
-                        "correctAnswer", "B",
-                        "weakArea", topic + " understanding"
-                ),
-                Map.of(
-                        "question", "Why is practice important in " + topic + "?",
-                        "optionA", "It makes concepts stronger",
-                        "optionB", "It wastes time",
-                        "optionC", "It removes the need to learn theory",
-                        "optionD", "It is only for exams",
-                        "correctAnswer", "A",
-                        "weakArea", topic + " practice"
-                ),
-                Map.of(
-                        "question", "What should a student do after learning basics of " + topic + "?",
-                        "optionA", "Stop studying",
-                        "optionB", "Solve small problems",
-                        "optionC", "Ignore examples",
-                        "optionD", "Only copy notes",
-                        "correctAnswer", "B",
-                        "weakArea", topic + " problem solving"
-                ),
-                Map.of(
-                        "question", "Which mistake should students avoid while learning " + topic + "?",
-                        "optionA", "Practicing examples",
-                        "optionB", "Asking questions",
-                        "optionC", "Only memorizing without understanding",
-                        "optionD", "Making notes",
-                        "correctAnswer", "C",
-                        "weakArea", topic + " common mistakes"
-                )
+        Map<String, Object> aiData = geminiService.generateStudyContent(
+                topic,
+                difficulty,
+                mcqCount,
+                customPrompt
         );
 
-        List<String> practiceProblems = List.of(
-                "Explain " + topic + " in your own words.",
-                "Write one real-life example of " + topic + ".",
-                "Create a simple program or diagram related to " + topic + "."
-        );
+        String summary = aiData.get("summary").toString();
+        String explanation = aiData.get("explanation").toString();
+
+        List<Map<String, String>> mcqs = (List<Map<String, String>>) aiData.get("mcqs");
+        List<String> practiceProblems = (List<String>) aiData.get("practiceProblems");
 
         StudySession session = new StudySession(
                 topic,
@@ -112,19 +71,47 @@ public class StudyController {
     }
 
     @PostMapping("/personalized-practice")
-    public Map<String, Object> generatePersonalizedPractice(@RequestBody Map<String, String> request) {
+    public Map<String, Object> generatePersonalizedPractice(@RequestBody Map<String, Object> request) {
 
-        String weakArea = request.get("weakArea");
+        List<String> weakAreas = new ArrayList<>();
+
+        Object weakAreasObject = request.get("weakAreas");
+
+        if (weakAreasObject instanceof List<?> list) {
+            for (Object item : list) {
+                if (item != null && !item.toString().isBlank()) {
+                    weakAreas.add(item.toString());
+                }
+            }
+        }
+
+        if (weakAreas.isEmpty()) {
+            return Map.of(
+                    "totalWrong", 0,
+                    "priorityTopics", List.of(),
+                    "practiceProblems", List.of("No weak area detected. Great job!")
+            );
+        }
+
+        PriorityQueue<WeakTopic> priorityQueue = buildWeakTopicPriorityQueue(weakAreas);
+
+        List<Map<String, Object>> priorityTopics = new ArrayList<>();
+
+        while (!priorityQueue.isEmpty()) {
+            WeakTopic weakTopic = priorityQueue.poll();
+
+            priorityTopics.add(Map.of(
+                    "topic", weakTopic.topic,
+                    "count", weakTopic.count
+            ));
+        }
+
+        List<String> practiceProblems = geminiService.generatePriorityBasedPractice(priorityTopics);
 
         return Map.of(
-                "weakArea", weakArea,
-                "practiceProblems", List.of(
-                        "Explain the concept of " + weakArea + " in simple words.",
-                        "Write 3 key points about " + weakArea + ".",
-                        "Create a small example related to " + weakArea + ".",
-                        "Solve one easy question based on " + weakArea + ".",
-                        "Write one common mistake students make in " + weakArea + "."
-                )
+                "totalWrong", weakAreas.size(),
+                "priorityTopics", priorityTopics,
+                "practiceProblems", practiceProblems
         );
     }
 
@@ -159,5 +146,34 @@ public class StudyController {
     @GetMapping("/quiz-history")
     public List<QuizAttempt> getQuizHistory() {
         return quizAttemptRepository.findAllByOrderByCreatedAtDesc();
+    }
+
+    private PriorityQueue<WeakTopic> buildWeakTopicPriorityQueue(List<String> weakAreas) {
+
+        Map<String, Integer> frequencyMap = new HashMap<>();
+
+        for (String area : weakAreas) {
+            frequencyMap.put(area, frequencyMap.getOrDefault(area, 0) + 1);
+        }
+
+        PriorityQueue<WeakTopic> priorityQueue = new PriorityQueue<>(
+                (a, b) -> b.count - a.count
+        );
+
+        for (Map.Entry<String, Integer> entry : frequencyMap.entrySet()) {
+            priorityQueue.add(new WeakTopic(entry.getKey(), entry.getValue()));
+        }
+
+        return priorityQueue;
+    }
+
+    private static class WeakTopic {
+        String topic;
+        int count;
+
+        WeakTopic(String topic, int count) {
+            this.topic = topic;
+            this.count = count;
+        }
     }
 }

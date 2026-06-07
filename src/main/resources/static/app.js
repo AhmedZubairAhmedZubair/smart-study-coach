@@ -1,10 +1,13 @@
 let currentMcqs = [];
 let detectedWeakArea = "";
 let currentSessionId = null;
+let wrongWeakAreasForPractice = [];
 
 async function generateStudy() {
     const topic = document.getElementById("topic").value;
     const difficulty = document.getElementById("difficulty").value;
+    const mcqCount = document.getElementById("mcqCount").value;
+    const customPrompt = document.getElementById("customPrompt").value;
     const resultDiv = document.getElementById("result");
 
     if (topic.trim() === "") {
@@ -12,7 +15,12 @@ async function generateStudy() {
         return;
     }
 
-    resultDiv.innerHTML = "<p>Generating study material...</p>";
+    if (mcqCount < 1) {
+        alert("Please enter MCQ count greater than 0");
+        return;
+    }
+
+    resultDiv.innerHTML = "<p>Generating detailed study material...</p>";
 
     try {
         const response = await fetch("/api/study/generate", {
@@ -22,19 +30,30 @@ async function generateStudy() {
             },
             body: JSON.stringify({
                 topic: topic,
-                difficulty: difficulty
+                difficulty: difficulty,
+                mcqCount: mcqCount,
+                customPrompt: customPrompt
             })
         });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.log("Backend error:", errorText);
+            resultDiv.innerHTML = `<p style="color:red;">Backend/Gemini error: ${errorText}</p>`;
+            return;
+        }
 
         const data = await response.json();
 
         currentSessionId = data.sessionId;
         currentMcqs = data.mcqs;
+        wrongWeakAreasForPractice = [];
 
         resultDiv.innerHTML = `
             <div class="card">
                 <h2>${data.topic}</h2>
                 <p><b>Difficulty:</b> ${data.difficulty}</p>
+                <p><b>Total MCQs:</b> ${data.mcqs.length}</p>
 
                 <div class="section">
                     <h3>Summary</h3>
@@ -42,7 +61,7 @@ async function generateStudy() {
                 </div>
 
                 <div class="section">
-                    <h3>Step-by-Step Explanation</h3>
+                    <h3>Detailed Explanation</h3>
                     <p>${data.explanation}</p>
                 </div>
 
@@ -119,15 +138,17 @@ async function submitQuiz() {
     }
 
     detectedWeakArea = detectWeakArea(wrongWeakAreas);
+    wrongWeakAreasForPractice = wrongWeakAreas;
 
     document.getElementById("quizResult").innerHTML = `
         <div class="card">
             <h3>Quiz Result</h3>
             <p><b>Score:</b> ${score}/${currentMcqs.length}</p>
-            <p><b>Weak Area:</b> ${detectedWeakArea}</p>
+            <p><b>Wrong Answers:</b> ${wrongWeakAreas.length}</p>
+            <p><b>Main Weak Area:</b> ${detectedWeakArea}</p>
 
             <button onclick="generatePersonalizedPractice()">
-                Generate Personalized Practice
+                Generate Priority-Based Practice
             </button>
         </div>
     `;
@@ -182,7 +203,7 @@ function detectWeakArea(wrongWeakAreas) {
 async function generatePersonalizedPractice() {
     const practiceDiv = document.getElementById("personalizedPractice");
 
-    if (detectedWeakArea === "No weak area detected. Great job!") {
+    if (wrongWeakAreasForPractice.length === 0) {
         practiceDiv.innerHTML = `
             <div class="card">
                 <h3>Personalized Practice</h3>
@@ -192,7 +213,7 @@ async function generatePersonalizedPractice() {
         return;
     }
 
-    practiceDiv.innerHTML = "<p>Generating personalized practice...</p>";
+    practiceDiv.innerHTML = "<p>Generating priority-based personalized practice...</p>";
 
     try {
         const response = await fetch("/api/study/personalized-practice", {
@@ -201,17 +222,31 @@ async function generatePersonalizedPractice() {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                weakArea: detectedWeakArea
+                weakAreas: wrongWeakAreasForPractice
             })
         });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            practiceDiv.innerHTML = `<p style="color:red;">Practice generation error: ${errorText}</p>`;
+            return;
+        }
 
         const data = await response.json();
 
         practiceDiv.innerHTML = `
             <div class="card">
-                <h3>Personalized Practice</h3>
-                <p><b>Focus Area:</b> ${data.weakArea}</p>
+                <h3>Priority-Based Personalized Practice</h3>
+                <p><b>Total Wrong Answers:</b> ${data.totalWrong}</p>
 
+                <h4>Weak Topic Priority Ranking</h4>
+                <ol>
+                    ${data.priorityTopics.map(topic => `
+                        <li>${topic.topic} — wrong ${topic.count} time(s)</li>
+                    `).join("")}
+                </ol>
+
+                <h4>Practice Questions</h4>
                 <ul>
                     ${data.practiceProblems.map(problem => `<li>${problem}</li>`).join("")}
                 </ul>
