@@ -141,13 +141,12 @@ public class GeminiService {
                 }
 
                 Explanation requirements:
-                - Explain the topic in extreme detail.
-                - Do not leave any important corner untouched.
+                - Explain the topic in detail.
                 - Cover definition, intuition, why it matters, main components, step-by-step working, examples, use cases, edge cases, common mistakes, and exam/coding perspective.
                 - Use beginner-friendly language.
                 - If the topic is programming-related, include logical flow and small conceptual examples.
                 - If the topic is math-related, explain meaning, formula intuition, steps, and common confusions.
-                - Make explanation detailed enough that a weak student can understand it without another source.
+                - Make explanation useful enough that a weak student can understand it.
                 - Follow the extra user instruction if provided.
 
                 Practice problem rules:
@@ -165,7 +164,7 @@ public class GeminiService {
                 ),
                 "generationConfig", Map.of(
                         "temperature", 0.2,
-                        "maxOutputTokens", 8000,
+                        "maxOutputTokens", 6000,
                         "responseMimeType", "application/json"
                 )
         );
@@ -206,6 +205,8 @@ public class GeminiService {
                 lastError = e;
                 System.out.println("MCQ batch failed. Batch: " + batchNumber + ", Attempt: " + attempt);
                 System.out.println("Reason: " + e.getMessage());
+
+                Thread.sleep(2000L);
             }
         }
 
@@ -389,25 +390,41 @@ public class GeminiService {
                 + model
                 + ":generateContent";
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .header("x-goog-api-key", apiKey)
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(jsonRequest))
-                .build();
-
         HttpClient client = HttpClient.newHttpClient();
 
-        HttpResponse<String> response = client.send(
-                request,
-                HttpResponse.BodyHandlers.ofString()
-        );
+        int maxRetries = 5;
 
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("x-goog-api-key", apiKey)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonRequest))
+                    .build();
+
+            HttpResponse<String> response = client.send(
+                    request,
+                    HttpResponse.BodyHandlers.ofString()
+            );
+
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                return response.body();
+            }
+
+            if (response.statusCode() == 503 || response.statusCode() == 429) {
+                System.out.println("Gemini busy or rate limited. Attempt "
+                        + attempt + " of " + maxRetries);
+
+                long waitTime = attempt * 3000L;
+                Thread.sleep(waitTime);
+                continue;
+            }
+
             throw new RuntimeException("Gemini error: " + response.body());
         }
 
-        return response.body();
+        throw new RuntimeException("Gemini is busy right now. Please try again after a few minutes.");
     }
 
     private String extractText(String responseBody) throws Exception {

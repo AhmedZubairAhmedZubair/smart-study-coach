@@ -11,15 +11,19 @@ public class StudySession {
     private Long id;
 
     private String topic;
+
     private String difficulty;
 
-    @Column(length = 5000)
+    @Lob
+    @Column(columnDefinition = "TEXT")
     private String summary;
 
-    @Column(length = 10000)
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
     private String explanation;
 
-    @Column(length = 10000)
+    @Lob
+    @Column(columnDefinition = "LONGTEXT")
     private String practiceProblems;
 
     private LocalDateTime createdAt;
